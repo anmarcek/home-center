@@ -4,16 +4,20 @@ using HomeCenter.Core.Interface;
 
 namespace HomeCenter.Core;
 
-public class OAuthClient : IOAuthClient
+public class OAuthClient(IHttpClientFactory httpClientFactory) : IOAuthClient
 {
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IHttpClientFactory _httpClientFactory =
+        httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
 
-    public OAuthClient(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
-    }
-
-    public async Task<OAuthTokens> GetAccessTokenAsync(string clientId, string clientSecret, string tokenEndpoint, string redirectUri, string authorizationCode, string scope)
+    public async Task<OAuthTokens> GetAccessTokenAsync
+    (
+        string clientId,
+        string clientSecret,
+        string tokenEndpoint,
+        string redirectUri,
+        string authorizationCode,
+        string scope
+    )
     {
         var request = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint)
         {
@@ -28,12 +32,24 @@ public class OAuthClient : IOAuthClient
             ])
         };
 
-        var oAuthTokens = await GetOAuthTokensAsync(request).ConfigureAwait(false);
-
-        return oAuthTokens;
+        try
+        {
+            var oAuthTokens = await GetOAuthTokensAsync(request).ConfigureAwait(false);
+            return oAuthTokens;
+        }
+        catch (HttpRequestException exception)
+        {
+            throw new OAuthClientUnauthorizedException("Failed to get access token.", exception);
+        }
     }
 
-    public async Task<OAuthTokens> RefreshAccessTokenAsync(string clientId, string clientSecret, string tokenEndpoint, string refreshToken)
+    public async Task<OAuthTokens> RefreshAccessTokenAsync
+    (
+        string clientId,
+        string clientSecret,
+        string tokenEndpoint,
+        string refreshToken
+    )
     {
         var request = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint)
         {
@@ -46,22 +62,29 @@ public class OAuthClient : IOAuthClient
             ])
         };
 
-        var oAuthTokens = await GetOAuthTokensAsync(request).ConfigureAwait(false);
-
-        return oAuthTokens;
+        try
+        {
+            var oAuthTokens = await GetOAuthTokensAsync(request).ConfigureAwait(false);
+            return oAuthTokens;
+        }
+        catch (HttpRequestException exception)
+        {
+            throw new OAuthClientUnauthorizedException("Failed to refresh access token.", exception);
+        }
     }
 
     #region Helpers
 
     private async Task<OAuthTokens> GetOAuthTokensAsync(HttpRequestMessage request)
     {
-        var _httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient();
 
-        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        var getAccessTokenResponse = JsonSerializer.Deserialize<GetAccessTokenResponse>(json) ?? throw new InvalidOperationException("Failed to deserialize access token.");
+        var getAccessTokenResponse = JsonSerializer.Deserialize<GetAccessTokenResponse>(json) ??
+                                     throw new InvalidOperationException("Failed to deserialize access token.");
 
         var oAuthTokens = new OAuthTokens
         {

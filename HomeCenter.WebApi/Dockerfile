@@ -7,10 +7,10 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["HomeCenter.Web/HomeCenter.WebApi.csproj", "HomeCenter.Web/"]
-RUN dotnet restore "HomeCenter.WebApi/HomeCenter.Web.csproj"
+COPY ["HomeCenter.WebApi/HomeCenter.WebApi.csproj", "HomeCenter.WebApi/"]
+RUN dotnet restore "HomeCenter.WebApi/HomeCenter.WebApi.csproj"
 COPY . .
-WORKDIR "/src/HomeCenter.Web"
+WORKDIR "/src/HomeCenter.WebApi"
 RUN dotnet build "HomeCenter.WebApi.csproj" -c Release -o /app/build
 
 FROM build AS publish
